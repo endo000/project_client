@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
-void main() {
-  runApp(const MyApp());
+import 'controllers/UserController.dart';
+import 'screens/IndexScreen.dart';
+import 'screens/LoginScreen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  UserController.logout();
+  print('main');
+
+  runApp(MyApp(logged: await UserController.isLogged()));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({required this.logged, Key? key}) : super(key: key);
+
+  final bool logged;
 
   @override
   Widget build(BuildContext context) {
@@ -15,26 +24,12 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      initialRoute: logged ? '/index' : '/login',
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/index': (context) => IndexScreen(),
+      },
     );
-  }
-}
-
-const String serverIP = '193.2.231.106:3000';
-
-Future<String> fetchTitle() async {
-  String address = 'http://$serverIP/users';
-  debugPrint('Address $address');
-  final response = await http.get(Uri.parse(address));
-
-  if (response.statusCode == 200) {
-    // If the server did return a 200 OK response,
-    // then parse the JSON.
-    return response.body;
-  } else {
-    // If the server did not return a 200 OK response,
-    // then throw an exception.
-    throw Exception('Failed to load title');
   }
 }
 
