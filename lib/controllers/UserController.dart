@@ -1,5 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http_parser/http_parser.dart';
 
 import '../consts.dart';
 
@@ -37,22 +38,44 @@ class UserController {
     return response.body;
   }
 
-  static Future<bool> login(username, password, {saveUser = false}) async {
-    var response = await http.post(Uri.parse('http://$serverIP/users/login'),
-        body: {'username': username, 'password': password});
+  static Future<bool> login(username, password,
+      {imagePath, openCameraCallback}) async {
+    var request = http.MultipartRequest(
+        'POST', Uri.parse('http://$serverIP/users/login'));
+    request.fields['username'] = username;
+    request.fields['password'] = password;
 
-    if (response.statusCode != 200) return false;
+    if (imagePath != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        imagePath,
+      ));
+    }
 
-    _setSessionFromResponse(response);
+    var response = await request.send();
 
-    return true;
+    // var response = await http.post(Uri.parse('http://$serverIP/users/login'),
+    //     body: {'username': username, 'password': password});
+
+    if (response.statusCode == 200) {
+      _setSessionFromResponse(response);
+      return true;
+    } else if (response.statusCode == 401) {
+      if (openCameraCallback != null) {
+        return openCameraCallback();
+      }
+    }
+
+    return false;
   }
 
   static Future<bool> register(username, password) async {
-    var response = await http.post(Uri.parse('http://$serverIP/users/'),
+    var response = await http.post(Uri.parse('http://$serverIP/users/register'),
         body: {'username': username, 'password': password});
 
-    if (response.statusCode != 200) return false;
+    if ([200, 201].contains(response.statusCode)) return false;
+
+    _setSessionFromResponse(response);
 
     return true;
   }

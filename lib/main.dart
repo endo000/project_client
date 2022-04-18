@@ -1,20 +1,23 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
 import 'controllers/UserController.dart';
 import 'screens/IndexScreen.dart';
 import 'screens/LoginScreen.dart';
 
+List<CameraDescription> cameras = <CameraDescription>[];
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // UserController.logout();
+  UserController.deleteSession();
 
-  runApp(MyApp(logged: await UserController.isLogged()));
+  cameras = await availableCameras();
+
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({required this.logged, Key? key}) : super(key: key);
-
-  final bool logged;
+  MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,11 +26,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      initialRoute: logged ? '/index' : '/login',
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/index': (context) => IndexScreen(),
-      },
+      home: const MyHomePage(title: 'Project 2022'),
     );
   }
 }
@@ -42,21 +41,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  late Future<String> futureTitle;
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
-  @override
-  void initState() {
-    futureTitle = fetchTitle();
-
-    super.initState();
-  }
+  late final Future<bool> isLogged = UserController.isLogged();
 
   @override
   Widget build(BuildContext context) {
@@ -65,34 +50,26 @@ class _MyHomePageState extends State<MyHomePage> {
         title: Text(widget.title),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            FutureBuilder<String>(
-              future: futureTitle,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Text(snapshot.data!);
-                } else if (snapshot.hasError) {
-                  return Text('${snapshot.error}');
-                }
-
-                // By default, show a loading spinner.
-                return const CircularProgressIndicator();
-              },
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headline4,
-            ),
-          ],
+        child: FutureBuilder<bool>(
+          future: isLogged,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              WidgetsBinding.instance!.addPostFrameCallback((_) {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) =>
+                          snapshot.data! ? IndexScreen() : const LoginScreen()),
+                );
+              });
+            } else if (snapshot.hasError) {
+              return Text('${snapshot.error}');
+            }
+            // By default, show a loading spinner.
+            return const CircularProgressIndicator();
+          },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
