@@ -6,32 +6,50 @@ import '../consts.dart';
 class UserController {
   static const _storage = FlutterSecureStorage();
 
-  static void _saveUser(username, password) {
-    _storage.write(key: 'username', value: username);
-    _storage.write(key: 'password', value: password);
+  static Future<Map<String, String>> _getSession() async {
+    return {'cookie': (await _storage.read(key: 'cookie') ?? "No")};
   }
 
-  static void logout() {
-    _storage.delete(key: 'username');
-    _storage.delete(key: 'password');
+  static void _setSession(cookie) {
+    _storage.write(key: 'cookie', value: cookie);
+  }
+
+  static void _setSessionFromResponse(response) {
+    String? rawCookie = response.headers['set-cookie'];
+    if (rawCookie != null) {
+      int index = rawCookie.indexOf(';');
+      _setSession((index == -1) ? rawCookie : rawCookie.substring(0, index));
+    }
+  }
+
+  static void deleteSession() {
+    _storage.delete(key: 'cookie');
+  }
+
+  static Future<String> list() async {
+    var response = await http.get(Uri.parse('http://$serverIP/users'),
+        headers: await _getSession());
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to load title');
+    }
+
+    return response.body;
   }
 
   static Future<bool> login(username, password, {saveUser = false}) async {
     var response = await http.post(Uri.parse('http://$serverIP/users/login'),
         body: {'username': username, 'password': password});
 
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
-
     if (response.statusCode != 200) return false;
 
-    if (saveUser) _saveUser(username, password);
+    _setSessionFromResponse(response);
 
     return true;
   }
 
   static Future<bool> register(username, password) async {
-    var response = await http.post(Uri.parse('http://$serverIP/users/register'),
+    var response = await http.post(Uri.parse('http://$serverIP/users/'),
         body: {'username': username, 'password': password});
 
     if (response.statusCode != 200) return false;
@@ -40,11 +58,11 @@ class UserController {
   }
 
   static Future<bool> isLogged() async {
-    String? username = await _storage.read(key: 'username');
-    String? password = await _storage.read(key: 'password');
+    var response = await http.get(Uri.parse('http://$serverIP/users/auth'),
+        headers: await _getSession());
 
-    if (username == null || password == null) return false;
+    if (response.statusCode != 200) return false;
 
-    return await login(username, password);
+    return true;
   }
 }

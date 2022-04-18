@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../consts.dart';
+import '../controllers/UserController.dart';
 
 Future<String> fetchTitle() async {
   String address = 'http://$serverIP/users';
@@ -20,7 +21,7 @@ Future<String> fetchTitle() async {
 }
 
 class IndexScreen extends StatelessWidget {
-  final Future<String> futureTitle = fetchTitle();
+  final Future<String> futureTitle = UserController.list();
 
   IndexScreen({Key? key}) : super(key: key);
 

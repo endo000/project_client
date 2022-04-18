@@ -34,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> {
               padding: const EdgeInsets.all(10),
               child: ListView(
                 children: <Widget>[
+                  // Title
                   Container(
                       alignment: Alignment.center,
                       padding: const EdgeInsets.all(10),
@@ -44,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             fontWeight: FontWeight.w500,
                             fontSize: 30),
                       )),
+                  // Username text field
                   Container(
                     padding: const EdgeInsets.all(10),
                     child: TextFormField(
@@ -65,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  // Password text field
                   Container(
                     padding: const EdgeInsets.all(10),
                     child: TextFormField(
@@ -86,6 +89,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  // Login / Sign up button
                   Container(
                       height: 50,
                       padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),

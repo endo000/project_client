@@ -6,8 +6,7 @@ import 'screens/LoginScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  UserController.logout();
-  print('main');
+  // UserController.logout();
 
   runApp(MyApp(logged: await UserController.isLogged()));
 }
@@ -26,7 +25,7 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: logged ? '/index' : '/login',
       routes: {
-        '/login': (context) => LoginScreen(),
+        '/login': (context) => const LoginScreen(),
         '/index': (context) => IndexScreen(),
       },
     );
