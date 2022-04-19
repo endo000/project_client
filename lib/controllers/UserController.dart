@@ -1,6 +1,5 @@
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:http_parser/http_parser.dart';
 
 import '../consts.dart';
 
@@ -53,9 +52,6 @@ class UserController {
     }
 
     var response = await request.send();
-
-    // var response = await http.post(Uri.parse('http://$serverIP/users/login'),
-    //     body: {'username': username, 'password': password});
 
     if (response.statusCode == 200) {
       _setSessionFromResponse(response);

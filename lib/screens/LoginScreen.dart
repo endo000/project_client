@@ -152,19 +152,15 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                             Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => IndexScreen()));
+                                    builder: (context) => const IndexScreen()));
                           } else {
                             FocusManager.instance.primaryFocus?.unfocus();
                             _formKey.currentState!.validate();
                           }
                         },
                       )),
-                  // Container(
-                  //     height: 50,
-                  //     padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
-                  //     child: ElevatedButton(
-                  //         child: const Text('Show camera'),
-                  //         onPressed: showOverlay)),
+                  ElevatedButton(
+                      child: const Text('Show camera'), onPressed: showOverlay),
                   if (widget.type == AuthType.login)
                     Row(
                       children: <Widget>[
@@ -199,7 +195,8 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
     await onNewCameraSelected(cameras[1]);
 
-    double size = MediaQuery.of(context).size.width;
+    double cameraSize = MediaQuery.of(context).size.width;
+    const double iconsSize = 50;
 
     Completer<bool> loggedCompleter = Completer();
     bool logged;
@@ -207,55 +204,98 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     entry = OverlayEntry(
         builder: (context) => BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: <Widget>[
-                    SizedBox(
-                      width: size,
-                      height: size,
-                      child: ClipOval(
-                          child: OverflowBox(
-                              child: FittedBox(
-                                  fit: BoxFit.fitWidth,
-                                  child: SizedBox(
-                                      width: size,
-                                      child: CameraPreview(controller!))))),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        ElevatedButton(
-                            child: const Text('Close camera'),
-                            onPressed: () {
-                              entry!.remove();
-                              controller?.dispose();
-                            }),
-                        ElevatedButton(
-                            child: const Text('Take photo'),
-                            onPressed: () async {
-                              if (controller!.value.isTakingPicture) {
-                                return;
-                              }
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      SizedBox(
+                        width: cameraSize,
+                        height: cameraSize,
+                        child: ClipOval(
+                            child: OverflowBox(
+                                child: FittedBox(
+                                    fit: BoxFit.fitWidth,
+                                    child: SizedBox(
+                                        width: cameraSize,
+                                        child: CameraPreview(controller!))))),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Ink(
+                            decoration: const ShapeDecoration(
+                              color: Colors.lightBlue,
+                              shape: CircleBorder(),
+                            ),
+                            child: IconButton(
+                              icon: const Icon(Icons.close),
+                              color: Colors.white,
+                              onPressed: _closeOverlay,
+                            ),
+                          ),
+                          Ink(
+                            decoration: const ShapeDecoration(
+                              color: Colors.lightBlue,
+                              shape: CircleBorder(),
+                            ),
+                            child: IconButton(
+                                icon: const Icon(Icons.camera_alt),
+                                color: Colors.white,
+                                onPressed: () async {
+                                  if (controller!.value.isTakingPicture) {
+                                    return;
+                                  }
 
-                              XFile file = await controller!.takePicture();
+                                  XFile file = await controller!.takePicture();
 
-                              logged = await UserController.login(
-                                  nameController.text, passwordController.text,
-                                  imagePath: file.path);
+                                  logged = await UserController.login(
+                                      nameController.text,
+                                      passwordController.text,
+                                      imagePath: file.path);
 
-                              loggedCompleter.complete(logged);
-                              entry!.remove();
-                              controller?.dispose();
-                            }),
-                      ],
-                    ),
-                  ]),
+                                  loggedCompleter.complete(logged);
+
+                                  _closeOverlay();
+                                }),
+                          ),
+                          // ElevatedButton(
+                          //     child: const Text('Close camera'),
+                          //     onPressed: () {
+                          //       entry!.remove();
+                          //       controller?.dispose();
+                          //     }),
+                          // ElevatedButton(
+                          //     child: const Text('Take photo'),
+                          //     onPressed: () async {
+                          //       if (controller!.value.isTakingPicture) {
+                          //         return;
+                          //       }
+
+                          //       XFile file = await controller!.takePicture();
+
+                          //       logged = await UserController.login(
+                          //           nameController.text, passwordController.text,
+                          //           imagePath: file.path);
+
+                          //       loggedCompleter.complete(logged);
+                          //       _closeOverlay();
+                          //     }),
+                        ],
+                      ),
+                    ]),
+              ),
             ));
 
     overlay.insert(entry!);
 
     return loggedCompleter.future;
+  }
+
+  _closeOverlay() {
+    entry!.remove();
+    controller?.dispose();
   }
 
   Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {

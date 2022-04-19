@@ -9,7 +9,7 @@ List<CameraDescription> cameras = <CameraDescription>[];
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  UserController.deleteSession();
+  // UserController.deleteSession();
 
   cameras = await availableCameras();
 
@@ -58,8 +58,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
-                      builder: (context) =>
-                          snapshot.data! ? IndexScreen() : const LoginScreen()),
+                      builder: (context) => snapshot.data!
+                          ? const IndexScreen()
+                          : const LoginScreen()),
                 );
               });
             } else if (snapshot.hasError) {
