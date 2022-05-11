@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:async/async.dart';
+
+import '../controllers/RoadController.dart';
 
 class SendDataScreen extends StatefulWidget {
   const SendDataScreen({Key? key}) : super(key: key);
@@ -54,22 +58,45 @@ class _SendDataScreenState extends State<SendDataScreen> {
     // timeLimit: Duration(seconds: 5),
   );
 
+  late StreamSubscription positionStream;
+
   @override
   void initState() {
-    StreamZip([
-      Geolocator.getPositionStream(),
-      accelerometerEvents,
-      userAccelerometerEvents,
-      magnetometerEvents
-    ]).listen((p0) {
-      print(p0);
+
+    positionStream =
+        Geolocator.getPositionStream().listen((Position? position) {
+      if (position == null) return;
+      var info = {
+        "pos_y": position.latitude,
+        "pos_x": position.longitude,
+        "speed": position.speed
+      };
+      RoadController.sendGeo(info);
     });
+    // StreamZip([
+    //   Geolocator.getPositionStream(),
+    //   accelerometerEvents,
+    //   userAccelerometerEvents,
+    //   magnetometerEvents
+    // ]).listen((p0) {
+    //   print(p0);
+    // });
     // accelerometerEvents.listen((event) {
     //   if (event != null) {
     //     print("listen in initState");
     //   }
     // });
     super.initState();
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    positionStream.cancel();
+
+    RoadController.finishGeo();
+
+    super.dispose();
   }
 
   @override

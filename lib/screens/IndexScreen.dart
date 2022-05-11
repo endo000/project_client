@@ -1,26 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
 
+import '../controllers/RoadController.dart';
 import 'SendDataScreen.dart';
 
-
-
-class IndexScreen extends StatelessWidget {
+class IndexScreen extends StatefulWidget {
   const IndexScreen({Key? key}) : super(key: key);
 
   @override
+  State<IndexScreen> createState() => _IndexScreenState();
+}
+
+class _IndexScreenState extends State<IndexScreen> {
+  late MapController mapController;
+
+  updateTraffic() {
+    RoadController.getTraffic().then((roads) {
+      for (var road in roads) {
+        GeoPoint point =
+            GeoPoint(latitude: road["pos_y"], longitude: road["pos_x"]);
+        mapController.addMarker(point);
+      }
+    });
+  }
+
+  @override
+  void initState() {
+    mapController = MapController(
+      initMapWithUserPosition: true,
+    );
+    updateTraffic();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant IndexScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    print('didUpdateWidget');
+    updateTraffic();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    print('build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Main page'),
       ),
-      body: Center(
-        child: ElevatedButton(
-          child: const Text('Start sending'),
-          onPressed: () {
-            Navigator.pushReplacement(context,
-                MaterialPageRoute(builder: (context) => const SendDataScreen()));
-          },
-        ),
+      body: Stack(
+        alignment: Alignment.bottomCenter,
+        children: [
+          OSMFlutter(
+            controller: mapController,
+            trackMyPosition: true,
+            initZoom: 12,
+            androidHotReloadSupport: true,
+            stepZoom: 1.0,
+            userLocationMarker: UserLocationMaker(
+              personMarker: const MarkerIcon(
+                icon: Icon(
+                  Icons.location_history_rounded,
+                  color: Colors.red,
+                  size: 48,
+                ),
+              ),
+              directionArrowMarker: const MarkerIcon(
+                icon: Icon(
+                  Icons.double_arrow,
+                  size: 48,
+                ),
+              ),
+            ),
+            roadConfiguration: RoadConfiguration(
+              startIcon: const MarkerIcon(
+                icon: Icon(
+                  Icons.person,
+                  size: 64,
+                  color: Colors.brown,
+                ),
+              ),
+              roadColor: Colors.yellowAccent,
+            ),
+            markerOption: MarkerOption(
+                defaultMarker: const MarkerIcon(
+              icon: Icon(
+                Icons.person_pin_circle,
+                color: Colors.blue,
+                size: 56,
+              ),
+            )),
+          ),
+          ElevatedButton(
+            child: const Text('Start sending'),
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SendDataScreen()));
+            },
+          ),
+        ],
       ),
     );
   }
