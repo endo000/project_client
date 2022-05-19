@@ -159,8 +159,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                           }
                         },
                       )),
-                  ElevatedButton(
-                      child: const Text('Show camera'), onPressed: showOverlay),
                   if (widget.type == AuthType.login)
                     Row(
                       children: <Widget>[
@@ -178,7 +176,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                     const LoginScreen(type: AuthType.singin),
                               ),
                             );
-                            //signup screen
                           },
                         )
                       ],
@@ -196,7 +193,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     await onNewCameraSelected(cameras[1]);
 
     double cameraSize = MediaQuery.of(context).size.width;
-    const double iconsSize = 50;
 
     Completer<bool> loggedCompleter = Completer();
     bool logged;
@@ -260,28 +256,6 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   _closeOverlay();
                                 }),
                           ),
-                          // ElevatedButton(
-                          //     child: const Text('Close camera'),
-                          //     onPressed: () {
-                          //       entry!.remove();
-                          //       controller?.dispose();
-                          //     }),
-                          // ElevatedButton(
-                          //     child: const Text('Take photo'),
-                          //     onPressed: () async {
-                          //       if (controller!.value.isTakingPicture) {
-                          //         return;
-                          //       }
-
-                          //       XFile file = await controller!.takePicture();
-
-                          //       logged = await UserController.login(
-                          //           nameController.text, passwordController.text,
-                          //           imagePath: file.path);
-
-                          //       loggedCompleter.complete(logged);
-                          //       _closeOverlay();
-                          //     }),
                         ],
                       ),
                     ]),

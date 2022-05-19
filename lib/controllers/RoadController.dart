@@ -14,7 +14,7 @@ class RoadController {
     return jsonDecode(response.body) as List;
   }
 
-  static Future<bool> sendGeo(Map geoInfo) async {
+  static Future<bool> sendData(Map geoInfo) async {
     var body = jsonEncode(geoInfo);
 
     var response =
@@ -28,7 +28,7 @@ class RoadController {
     return true;
   }
 
-  static void finishGeo() async {
+  static void finishData() async {
     await http.put(Uri.parse('http://$serverIP/users/navigator/finish'),
         headers: await ApiController.getSession());
   }

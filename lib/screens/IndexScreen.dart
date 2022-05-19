@@ -1,8 +1,30 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 
 import '../controllers/RoadController.dart';
 import 'SendDataScreen.dart';
+
+class ExamplePopup extends StatelessWidget {
+  const ExamplePopup({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+            mainAxisSize: MainAxisSize.min, children: const [Text("asdasd")]),
+      ),
+    );
+  }
+}
 
 class IndexScreen extends StatefulWidget {
   const IndexScreen({Key? key}) : super(key: key);
@@ -12,43 +34,42 @@ class IndexScreen extends StatefulWidget {
 }
 
 class _IndexScreenState extends State<IndexScreen> {
-  late MapController mapController;
+  final PopupController _popupLayerController = PopupController();
+  final StreamController<List<Marker>> _streamController = StreamController();
 
   updateTraffic() {
     RoadController.getTraffic().then((roads) {
-      for (var road in roads) {
-        GeoPoint point =
-            GeoPoint(latitude: road["pos_y"], longitude: road["pos_x"]);
-        mapController.addMarker(point);
-      }
+      List<Marker> newRoads = roads
+          .map((e) => Marker(
+                point: LatLng(e["pos_y"], e["pos_x"]),
+                width: 40,
+                height: 40,
+                builder: (_) =>
+                    const Icon(Icons.location_on, size: 40, color: Colors.red),
+                anchorPos: AnchorPos.align(AnchorAlign.top),
+              ))
+          .toList();
+      _streamController.sink.add(newRoads);
     });
   }
 
   @override
   void initState() {
-    mapController = MapController(
-      initMapWithUserPosition: true,
-    );
-    updateTraffic();
+    Timer.periodic(const Duration(seconds: 3), (timer) {
+      print("Traffic stream ${timer.tick}");
+      updateTraffic();
+    });
     super.initState();
   }
 
   @override
   void dispose() {
-    mapController.dispose();
+    _streamController.close();
     super.dispose();
   }
 
   @override
-  void didUpdateWidget(covariant IndexScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    print('didUpdateWidget');
-    updateTraffic();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    print('build');
     return Scaffold(
       appBar: AppBar(
         title: const Text('Main page'),
@@ -56,45 +77,45 @@ class _IndexScreenState extends State<IndexScreen> {
       body: Stack(
         alignment: Alignment.bottomCenter,
         children: [
-          OSMFlutter(
-            controller: mapController,
-            trackMyPosition: true,
-            initZoom: 12,
-            androidHotReloadSupport: true,
-            stepZoom: 1.0,
-            userLocationMarker: UserLocationMaker(
-              personMarker: const MarkerIcon(
-                icon: Icon(
-                  Icons.location_history_rounded,
-                  color: Colors.red,
-                  size: 48,
-                ),
-              ),
-              directionArrowMarker: const MarkerIcon(
-                icon: Icon(
-                  Icons.double_arrow,
-                  size: 48,
-                ),
-              ),
+          FlutterMap(
+            options: MapOptions(
+              zoom: 8.0,
+              center: LatLng(46.1512, 14.9955),
+              interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              onTap: (_, __) => _popupLayerController
+                  .hideAllPopups(), // Hide popup when the map is tapped.
             ),
-            roadConfiguration: RoadConfiguration(
-              startIcon: const MarkerIcon(
-                icon: Icon(
-                  Icons.person,
-                  size: 64,
-                  color: Colors.brown,
+            children: [
+              TileLayerWidget(
+                options: TileLayerOptions(
+                  urlTemplate:
+                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  subdomains: ['a', 'b', 'c'],
                 ),
               ),
-              roadColor: Colors.yellowAccent,
-            ),
-            markerOption: MarkerOption(
-                defaultMarker: const MarkerIcon(
-              icon: Icon(
-                Icons.person_pin_circle,
-                color: Colors.blue,
-                size: 56,
-              ),
-            )),
+              StreamBuilder<List<Marker>>(
+                  stream: _streamController.stream,
+                  builder: (BuildContext context,
+                      AsyncSnapshot<List<Marker>> snapshot) {
+                    if (snapshot.hasError) {
+                      return Text(snapshot.error.toString());
+                    }
+                    if (snapshot.hasData) {
+                      return PopupMarkerLayerWidget(
+                        options: PopupMarkerLayerOptions(
+                          popupController: _popupLayerController,
+                          markers: snapshot.data!,
+                          markerRotateAlignment:
+                              PopupMarkerLayerOptions.rotationAlignmentFor(
+                                  AnchorAlign.top),
+                          popupBuilder: (BuildContext context, Marker marker) =>
+                              ExamplePopup(),
+                        ),
+                      );
+                    }
+                    return const CircularProgressIndicator();
+                  }),
+            ],
           ),
           ElevatedButton(
             child: const Text('Start sending'),

@@ -58,43 +58,45 @@ class _SendDataScreenState extends State<SendDataScreen> {
     // timeLimit: Duration(seconds: 5),
   );
 
-  late StreamSubscription positionStream;
+  late StreamSubscription dataStream;
 
   @override
   void initState() {
-
-    positionStream =
-        Geolocator.getPositionStream().listen((Position? position) {
-      if (position == null) return;
+    dataStream = StreamZip([
+      Geolocator.getPositionStream(),
+      userAccelerometerEvents,
+      magnetometerEvents
+    ]).listen((events) {
+      var position = events[0] as Position;
+      var accelerometer = events[1] as UserAccelerometerEvent;
+      var magnetometer = events[2] as MagnetometerEvent;
       var info = {
-        "pos_y": position.latitude,
-        "pos_x": position.longitude,
-        "speed": position.speed
+        "position": {
+          "latitude": position.latitude,
+          "longitude": position.longitude,
+          "speed": position.speed,
+        },
+        "accelerometer": {
+          "x": accelerometer.x,
+          "y": accelerometer.y,
+          "z": accelerometer.z
+        },
+        "magnetometer": {
+          "x": magnetometer.x,
+          "y": magnetometer.y,
+          "z": magnetometer.z
+        }
       };
-      RoadController.sendGeo(info);
+      RoadController.sendData(info);
     });
-    // StreamZip([
-    //   Geolocator.getPositionStream(),
-    //   accelerometerEvents,
-    //   userAccelerometerEvents,
-    //   magnetometerEvents
-    // ]).listen((p0) {
-    //   print(p0);
-    // });
-    // accelerometerEvents.listen((event) {
-    //   if (event != null) {
-    //     print("listen in initState");
-    //   }
-    // });
     super.initState();
   }
 
   @override
   void dispose() {
-    // TODO: implement dispose
-    positionStream.cancel();
+    dataStream.cancel();
 
-    RoadController.finishGeo();
+    RoadController.finishData();
 
     super.dispose();
   }

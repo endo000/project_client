@@ -5,8 +5,6 @@ import '../consts.dart';
 import 'ApiController.dart';
 
 class UserController {
-
-
   static Future<String> list() async {
     var response = await http.get(Uri.parse('http://$serverIP/users'),
         headers: await ApiController.getSession());
@@ -50,7 +48,7 @@ class UserController {
     var response = await http.post(Uri.parse('http://$serverIP/users/register'),
         body: {'username': username, 'password': password});
 
-    if ([200, 201].contains(response.statusCode)) return false;
+    if (![200, 201].contains(response.statusCode)) return false;
 
     ApiController.setSessionFromResponse(response);
 
