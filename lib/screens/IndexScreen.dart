@@ -48,7 +48,7 @@ class TrafficMarker extends Marker {
           width: 40,
           height: 40,
           point: LatLng(road.posY, road.posX),
-          builder: (_) => Icon(Icons.location_on_outlined,
+          builder: (_) => Icon(Icons.location_on,
               size: 40,
               color: road.avgTraffic >= 200 ? Colors.red : Colors.green),
         );
@@ -63,7 +63,7 @@ class TrafficMarkerPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: 200,
       child: Card(
         shape: RoundedRectangleBorder(
@@ -91,27 +91,30 @@ class IndexScreen extends StatefulWidget {
 
 class _IndexScreenState extends State<IndexScreen> {
   final PopupController _popupLayerController = PopupController();
-  final StreamController<List<Marker>> _streamController = StreamController();
+  late Timer _trafficTimer;
+
+  List<TrafficMarker> _markers = [];
 
   updateTraffic() {
     RoadController.getTraffic().then((roads) {
-      List<Marker> newRoads = roads
-          .map((road) => TrafficMarker(
-                road: Road(
-                    posX: road["pos_x"],
-                    posY: road["pos_y"],
-                    avgSpeed: road["avg_spd"],
-                    avgGap: road["avg_gap"],
-                    avgTraffic: road["avg_traffic"]),
-              ))
-          .toList();
-      _streamController.sink.add(newRoads);
+      setState(() {
+        _markers = roads
+            .map((road) => TrafficMarker(
+                  road: Road(
+                      posX: road["pos_x"],
+                      posY: road["pos_y"],
+                      avgSpeed: road["avg_spd"],
+                      avgGap: road["avg_gap"],
+                      avgTraffic: road["avg_traffic"]),
+                ))
+            .toList();
+      });
     });
   }
 
   @override
   void initState() {
-    Timer.periodic(const Duration(seconds: 3), (timer) {
+    _trafficTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       print("Traffic stream ${timer.tick}");
       updateTraffic();
     });
@@ -120,7 +123,8 @@ class _IndexScreenState extends State<IndexScreen> {
 
   @override
   void dispose() {
-    _streamController.close();
+    print("index dispose");
+    _trafficTimer.cancel();
     super.dispose();
   }
 
@@ -149,32 +153,20 @@ class _IndexScreenState extends State<IndexScreen> {
                   subdomains: ['a', 'b', 'c'],
                 ),
               ),
-              StreamBuilder<List<Marker>>(
-                  stream: _streamController.stream,
-                  builder: (BuildContext context,
-                      AsyncSnapshot<List<Marker>> snapshot) {
-                    if (snapshot.hasError) {
-                      return Text(snapshot.error.toString());
-                    }
-                    if (snapshot.hasData) {
-                      return PopupMarkerLayerWidget(
-                        options: PopupMarkerLayerOptions(
-                            popupController: _popupLayerController,
-                            markers: snapshot.data!,
-                            markerRotateAlignment:
-                                PopupMarkerLayerOptions.rotationAlignmentFor(
-                                    AnchorAlign.top),
-                            popupBuilder:
-                                (BuildContext context, Marker marker) {
-                              if (marker is TrafficMarker) {
-                                return TrafficMarkerPopup(road: marker.road);
-                              }
-                              return const Card(child: Text('Not a monument'));
-                            }),
-                      );
-                    }
-                    return const CircularProgressIndicator();
-                  }),
+              PopupMarkerLayerWidget(
+                options: PopupMarkerLayerOptions(
+                    popupController: _popupLayerController,
+                    markers: _markers,
+                    markerRotateAlignment:
+                        PopupMarkerLayerOptions.rotationAlignmentFor(
+                            AnchorAlign.top),
+                    popupBuilder: (BuildContext context, Marker marker) {
+                      if (marker is TrafficMarker) {
+                        return TrafficMarkerPopup(road: marker.road);
+                      }
+                      return const Card(child: Text('Not a monument'));
+                    }),
+              ),
             ],
           ),
           ElevatedButton(
@@ -191,87 +183,3 @@ class _IndexScreenState extends State<IndexScreen> {
     );
   }
 }
-
-/* class IndexScreen extends StatefulWidget {
-  const IndexScreen({Key? key}) : super(key: key);
-
-  @override
-  State<IndexScreen> createState() => _IndexScreenState();
-}
-
-class _IndexScreenState extends State<IndexScreen> {
-  Future<Position> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // Test if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the
-      // App to enable the location services.
-      return Future.error('Location services are disabled.');
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
-        return Future.error('Location permissions are denied');
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately.
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
-
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
-  }
-
-  final LocationSettings locationSettings = const LocationSettings(
-    accuracy: LocationAccuracy.high,
-    distanceFilter: 100,
-  );
-
-  @override
-  void initState() {
-    StreamSubscription<Position> positionStream =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen((Position? position) {
-      print(position == null
-          ? 'Unknown'
-          : '${position.latitude.toString()}, ${position.longitude.toString()}');
-
-      accelerometerEvents.listen((AccelerometerEvent event) {
-        print(event);
-      });
-// [AccelerometerEvent (x: 0.0, y: 9.8, z: 0.0)]
-
-      userAccelerometerEvents.listen((UserAccelerometerEvent event) {
-        print(event);
-      });
-// [UserAccelerometerEvent (x: 0.0, y: 0.0, z: 0.0)]
-
-      gyroscopeEvents.listen((GyroscopeEvent event) {
-        print(event);
-      });
-// [GyroscopeEvent (x: 0.0, y: 0.0, z: 0.0)]
-
-      magnetometerEvents.listen((MagnetometerEvent event) {
-        print(event);
-      });
-// [MagnetometerEvent (x: -23.6, y: 6.2, z: -34.9)]
-    });
-
-    super.initState();
-  }
-} */

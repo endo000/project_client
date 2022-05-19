@@ -15,16 +15,12 @@ class SendDataScreen extends StatefulWidget {
 }
 
 class _SendDataScreenState extends State<SendDataScreen> {
-  Future<Position> _determinePosition() async {
+  Future<bool> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Test if location services are enabled.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the
-      // App to enable the location services.
       return Future.error('Location services are disabled.');
     }
 
@@ -32,24 +28,16 @@ class _SendDataScreenState extends State<SendDataScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
         return Future.error('Location permissions are denied');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately.
       return Future.error(
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    return await Geolocator.getCurrentPosition();
+    return true;
   }
 
   final LocationSettings locationSettings = const LocationSettings(
@@ -58,46 +46,76 @@ class _SendDataScreenState extends State<SendDataScreen> {
     // timeLimit: Duration(seconds: 5),
   );
 
-  late StreamSubscription dataStream;
+  late Timer _dataTimer;
+  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
+  Position? position;
+  UserAccelerometerEvent? accelerometer;
+  MagnetometerEvent? magnetometer;
+
+  Map? get data {
+    if (position == null) return null;
+    if (accelerometer == null) return null;
+    if (magnetometer == null) return null;
+
+    return {
+      "position": {
+        "latitude": position!.latitude,
+        "longitude": position!.longitude,
+        "speed": position!.speed,
+      },
+      "accelerometer": {
+        "x": accelerometer!.x,
+        "y": accelerometer!.y,
+        "z": accelerometer!.z
+      },
+      "magnetometer": {
+        "x": magnetometer!.x,
+        "y": magnetometer!.y,
+        "z": magnetometer!.z
+      }
+    };
+  }
 
   @override
   void initState() {
-    dataStream = StreamZip([
-      Geolocator.getPositionStream(),
-      userAccelerometerEvents,
-      magnetometerEvents
-    ]).listen((events) {
-      var position = events[0] as Position;
-      var accelerometer = events[1] as UserAccelerometerEvent;
-      var magnetometer = events[2] as MagnetometerEvent;
-      var info = {
-        "position": {
-          "latitude": position.latitude,
-          "longitude": position.longitude,
-          "speed": position.speed,
-        },
-        "accelerometer": {
-          "x": accelerometer.x,
-          "y": accelerometer.y,
-          "z": accelerometer.z
-        },
-        "magnetometer": {
-          "x": magnetometer.x,
-          "y": magnetometer.y,
-          "z": magnetometer.z
-        }
-      };
-      RoadController.sendData(info);
+    _dataTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      print("Send data ${timer.tick}");
+
+      if (data != null) RoadController.sendData(data!);
     });
+
+    _streamSubscriptions.addAll([
+      Geolocator.getPositionStream().listen((event) {
+        setState(() {
+          print("locator stream");
+          position = event;
+        });
+      }),
+      userAccelerometerEvents.listen((event) {
+        setState(() {
+          print("accelerometer stream");
+          accelerometer = event;
+        });
+      }),
+      magnetometerEvents.listen((event) {
+        setState(() {
+          print("magnetometer stream");
+          magnetometer = event;
+        });
+      })
+    ]);
+
     super.initState();
   }
 
   @override
   void dispose() {
-    dataStream.cancel();
-
+    print("sendData dispose");
+    _dataTimer.cancel();
     RoadController.finishData();
-
+    for (final subscription in _streamSubscriptions) {
+      subscription.cancel();
+    }
     super.dispose();
   }
 
@@ -110,105 +128,9 @@ class _SendDataScreenState extends State<SendDataScreen> {
       body: Center(
         child: Column(
           children: [
-            StreamBuilder<ServiceStatus>(
-              stream: Geolocator.getServiceStatusStream(),
-              initialData: ServiceStatus.enabled,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  if (snapshot.data! == ServiceStatus.disabled) {
-                    return const Text('Location services are disabled.');
-                  }
-
-                  return FutureBuilder<LocationPermission>(
-                    future: Geolocator.checkPermission(),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        if (snapshot.data! == LocationPermission.denied) {
-                          return FutureBuilder<LocationPermission>(
-                            future: Geolocator.requestPermission(),
-                            builder: (context, snapshot) {
-                              if (snapshot.hasData) {
-                                if (snapshot.data! ==
-                                    LocationPermission.denied) {
-                                  return const Text(
-                                      'Location permissions are denied');
-                                }
-                              } else if (snapshot.hasError) {
-                                return Text('${snapshot.error}');
-                              }
-                              // By default, show a loading spinner.
-                              return const CircularProgressIndicator();
-                            },
-                          );
-                        }
-                        if (snapshot.data! ==
-                            LocationPermission.deniedForever) {
-                          // Permissions are denied forever, handle appropriately.
-                          return const Text(
-                              'Location permissions are permanently denied, we cannot request permissions.');
-                        }
-                      } else if (snapshot.hasError) {
-                        return Text('${snapshot.error}');
-                      }
-                      // By default, show a loading spinner.
-                      return StreamBuilder<Position>(
-                          stream: Geolocator.getPositionStream(
-                              locationSettings: locationSettings),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData) {
-                              Position position = snapshot.data!;
-                              return Text(
-                                  '${position.latitude.toString()}, ${position.longitude.toString()}');
-                            } else if (snapshot.hasError) {
-                              return Text('${snapshot.error}');
-                            }
-                            return const CircularProgressIndicator();
-                          });
-                    },
-                  );
-                } else if (snapshot.hasError) {
-                  return Text('${snapshot.error}');
-                }
-                // By default, show a loading spinner.
-                return const CircularProgressIndicator();
-              },
-            ),
-            StreamBuilder<AccelerometerEvent>(
-              stream: accelerometerEvents,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Text(snapshot.data!.toString());
-                } else if (snapshot.hasError) {
-                  return Text('${snapshot.error}');
-                }
-
-                return const CircularProgressIndicator();
-              },
-            ),
-            StreamBuilder<GyroscopeEvent>(
-              stream: gyroscopeEvents,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Text(snapshot.data!.toString());
-                } else if (snapshot.hasError) {
-                  return Text('${snapshot.error}');
-                }
-
-                return const CircularProgressIndicator();
-              },
-            ),
-            StreamBuilder<MagnetometerEvent>(
-              stream: magnetometerEvents,
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Text(snapshot.data!.toString());
-                } else if (snapshot.hasError) {
-                  return Text('${snapshot.error}');
-                }
-
-                return const CircularProgressIndicator();
-              },
-            ),
+            Text("Location: $position"),
+            Text("Accelerometer: $accelerometer"),
+            Text("Magnetometer: $magnetometer"),
           ],
         ),
       ),
