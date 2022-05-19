@@ -26,6 +26,62 @@ class ExamplePopup extends StatelessWidget {
   }
 }
 
+class Road {
+  Road(
+      {required this.posX,
+      required this.posY,
+      required this.avgSpeed,
+      required this.avgGap,
+      required this.avgTraffic});
+
+  final double posX;
+  final double posY;
+  final int avgSpeed;
+  final int avgGap;
+  final int avgTraffic;
+}
+
+class TrafficMarker extends Marker {
+  TrafficMarker({required this.road})
+      : super(
+          anchorPos: AnchorPos.align(AnchorAlign.top),
+          width: 40,
+          height: 40,
+          point: LatLng(road.posY, road.posX),
+          builder: (_) => Icon(Icons.location_on_outlined,
+              size: 40,
+              color: road.avgTraffic >= 200 ? Colors.red : Colors.green),
+        );
+
+  final Road road;
+}
+
+class TrafficMarkerPopup extends StatelessWidget {
+  const TrafficMarkerPopup({Key? key, required this.road}) : super(key: key);
+
+  final Road road;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text("Average gap: ${road.avgGap}"),
+            Text("Average speed: ${road.avgSpeed}"),
+            Text("Average traffic: ${road.avgTraffic}"),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class IndexScreen extends StatefulWidget {
   const IndexScreen({Key? key}) : super(key: key);
 
@@ -40,13 +96,13 @@ class _IndexScreenState extends State<IndexScreen> {
   updateTraffic() {
     RoadController.getTraffic().then((roads) {
       List<Marker> newRoads = roads
-          .map((e) => Marker(
-                point: LatLng(e["pos_y"], e["pos_x"]),
-                width: 40,
-                height: 40,
-                builder: (_) =>
-                    const Icon(Icons.location_on, size: 40, color: Colors.red),
-                anchorPos: AnchorPos.align(AnchorAlign.top),
+          .map((road) => TrafficMarker(
+                road: Road(
+                    posX: road["pos_x"],
+                    posY: road["pos_y"],
+                    avgSpeed: road["avg_spd"],
+                    avgGap: road["avg_gap"],
+                    avgTraffic: road["avg_traffic"]),
               ))
           .toList();
       _streamController.sink.add(newRoads);
@@ -103,14 +159,18 @@ class _IndexScreenState extends State<IndexScreen> {
                     if (snapshot.hasData) {
                       return PopupMarkerLayerWidget(
                         options: PopupMarkerLayerOptions(
-                          popupController: _popupLayerController,
-                          markers: snapshot.data!,
-                          markerRotateAlignment:
-                              PopupMarkerLayerOptions.rotationAlignmentFor(
-                                  AnchorAlign.top),
-                          popupBuilder: (BuildContext context, Marker marker) =>
-                              ExamplePopup(),
-                        ),
+                            popupController: _popupLayerController,
+                            markers: snapshot.data!,
+                            markerRotateAlignment:
+                                PopupMarkerLayerOptions.rotationAlignmentFor(
+                                    AnchorAlign.top),
+                            popupBuilder:
+                                (BuildContext context, Marker marker) {
+                              if (marker is TrafficMarker) {
+                                return TrafficMarkerPopup(road: marker.road);
+                              }
+                              return const Card(child: Text('Not a monument'));
+                            }),
                       );
                     }
                     return const CircularProgressIndicator();
