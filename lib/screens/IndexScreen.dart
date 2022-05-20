@@ -1,9 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
+import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
+import 'dart:async';
 
 import '../controllers/RoadController.dart';
 import 'SendDataScreen.dart';
@@ -92,8 +93,35 @@ class IndexScreen extends StatefulWidget {
 class _IndexScreenState extends State<IndexScreen> {
   final PopupController _popupLayerController = PopupController();
   late Timer _trafficTimer;
+  late CenterOnLocationUpdate _centerOnLocationUpdate;
+  late StreamController<double?> _centerCurrentLocationStreamController;
 
   List<TrafficMarker> _markers = [];
+
+  Future<bool> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    return true;
+  }
 
   updateTraffic() {
     RoadController.getTraffic().then((roads) {
@@ -118,6 +146,8 @@ class _IndexScreenState extends State<IndexScreen> {
       print("Traffic stream ${timer.tick}");
       updateTraffic();
     });
+    _centerOnLocationUpdate = CenterOnLocationUpdate.always;
+    _centerCurrentLocationStreamController = StreamController<double?>();
     super.initState();
   }
 
@@ -125,6 +155,7 @@ class _IndexScreenState extends State<IndexScreen> {
   void dispose() {
     print("index dispose");
     _trafficTimer.cancel();
+    _centerCurrentLocationStreamController.close();
     super.dispose();
   }
 
@@ -134,49 +165,81 @@ class _IndexScreenState extends State<IndexScreen> {
       appBar: AppBar(
         title: const Text('Main page'),
       ),
-      body: Stack(
-        alignment: Alignment.bottomCenter,
+      body: FlutterMap(
+        options: MapOptions(
+          zoom: 13.0,
+          center: LatLng(46.1512, 14.9955),
+          interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+          onTap: (_, __) => _popupLayerController
+              .hideAllPopups(), // Hide popup when the map is tapped.
+          onPositionChanged: (MapPosition position, bool hasGesture) {
+            if (hasGesture) {
+              setState(
+                () => _centerOnLocationUpdate = CenterOnLocationUpdate.never,
+              );
+            }
+          },
+        ),
         children: [
-          FlutterMap(
-            options: MapOptions(
-              zoom: 8.0,
-              center: LatLng(46.1512, 14.9955),
-              interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              onTap: (_, __) => _popupLayerController
-                  .hideAllPopups(), // Hide popup when the map is tapped.
+          TileLayerWidget(
+            options: TileLayerOptions(
+              urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+              subdomains: ['a', 'b', 'c'],
             ),
-            children: [
-              TileLayerWidget(
-                options: TileLayerOptions(
-                  urlTemplate:
-                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: ['a', 'b', 'c'],
-                ),
-              ),
-              PopupMarkerLayerWidget(
-                options: PopupMarkerLayerOptions(
-                    popupController: _popupLayerController,
-                    markers: _markers,
-                    markerRotateAlignment:
-                        PopupMarkerLayerOptions.rotationAlignmentFor(
-                            AnchorAlign.top),
-                    popupBuilder: (BuildContext context, Marker marker) {
-                      if (marker is TrafficMarker) {
-                        return TrafficMarkerPopup(road: marker.road);
-                      }
-                      return const Card(child: Text('Not a monument'));
-                    }),
-              ),
-            ],
           ),
-          ElevatedButton(
-            child: const Text('Start sending'),
-            onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const SendDataScreen()));
-            },
+          LocationMarkerLayerWidget(
+            plugin: LocationMarkerPlugin(
+              centerCurrentLocationStream:
+                  _centerCurrentLocationStreamController.stream,
+              centerOnLocationUpdate: _centerOnLocationUpdate,
+            ),
+          ),
+          PopupMarkerLayerWidget(
+            options: PopupMarkerLayerOptions(
+                popupController: _popupLayerController,
+                markers: _markers,
+                markerRotateAlignment:
+                    PopupMarkerLayerOptions.rotationAlignmentFor(
+                        AnchorAlign.top),
+                popupBuilder: (BuildContext context, Marker marker) {
+                  if (marker is TrafficMarker) {
+                    return TrafficMarkerPopup(road: marker.road);
+                  }
+                  return const Card(child: Text('Not a monument'));
+                }),
+          ),
+        ],
+        nonRotatedChildren: [
+          Positioned(
+            right: 20,
+            bottom: 20,
+            child: FloatingActionButton(
+              onPressed: () {
+                // Automatically center the location marker on the map when location updated until user interact with the map.
+                setState(
+                  () => _centerOnLocationUpdate = CenterOnLocationUpdate.always,
+                );
+                // Center the location marker on the map and zoom the map to level 18.
+                _centerCurrentLocationStreamController.add(18);
+              },
+              child: const Icon(
+                Icons.my_location,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 20,
+            bottom: 20,
+            child: ElevatedButton(
+              child: const Text('Start sending'),
+              onPressed: () {
+                Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SendDataScreen()));
+              },
+            ),
           ),
         ],
       ),
