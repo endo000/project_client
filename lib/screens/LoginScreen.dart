@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:camera/camera.dart';
-
 import 'package:flutter/material.dart';
 import 'package:project/controllers/UserController.dart';
-
+import 'package:project/screens/CameraOverlay.dart';
 import '../main.dart';
 import 'IndexScreen.dart';
 
@@ -19,43 +18,15 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  CameraController? controller;
-
   bool? logged;
+  Completer<bool>? loggedCompleter;
 
   final _formKey = GlobalKey<FormState>();
   OverlayEntry? entry;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // App state changed before we got the chance to initialize.
-    if (controller == null || !controller!.value.isInitialized) {
-      return;
-    }
-    if (state == AppLifecycleState.inactive) {
-      controller?.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      if (controller != null) {
-        onNewCameraSelected(controller!.description);
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    WidgetsBinding.instance!.addObserver(this);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance!.removeObserver(this);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,17 +113,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                 nameController.text, passwordController.text,
                                 openCameraCallback: showOverlay);
                           } else {
-                            logged = await UserController.register(
-                              nameController.text,
-                              passwordController.text,
-                            );
+                            logged = await showOverlay();
+                            // logged = await UserController.register(
+                            //   nameController.text,
+                            //   passwordController.text,
+                            // );
                           }
 
                           if (logged!) {
-                            Navigator.pushReplacement(
+                            Navigator.pushAndRemoveUntil(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => const IndexScreen()));
+                                    builder: (context) => const IndexScreen()),
+                                (Route<dynamic> route) => false);
                           } else {
                             FocusManager.instance.primaryFocus?.unfocus();
                             _formKey.currentState!.validate();
@@ -189,122 +162,36 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   Future<bool> showOverlay() async {
     FocusManager.instance.primaryFocus?.unfocus();
     final overlay = Overlay.of(context)!;
-
-    await onNewCameraSelected(cameras[1]);
-
-    double cameraSize = MediaQuery.of(context).size.width;
-
-    Completer<bool> loggedCompleter = Completer();
-    bool logged;
+    loggedCompleter = Completer();
 
     entry = OverlayEntry(
-        builder: (context) => BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Material(
-                color: Colors.transparent,
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      SizedBox(
-                        width: cameraSize,
-                        height: cameraSize,
-                        child: ClipOval(
-                            child: OverflowBox(
-                                child: FittedBox(
-                                    fit: BoxFit.fitWidth,
-                                    child: SizedBox(
-                                        width: cameraSize,
-                                        child: CameraPreview(controller!))))),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Ink(
-                            decoration: const ShapeDecoration(
-                              color: Colors.lightBlue,
-                              shape: CircleBorder(),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.close),
-                              color: Colors.white,
-                              onPressed: _closeOverlay,
-                            ),
-                          ),
-                          Ink(
-                            decoration: const ShapeDecoration(
-                              color: Colors.lightBlue,
-                              shape: CircleBorder(),
-                            ),
-                            child: IconButton(
-                                icon: const Icon(Icons.camera_alt),
-                                color: Colors.white,
-                                onPressed: () async {
-                                  if (controller!.value.isTakingPicture) {
-                                    return;
-                                  }
-
-                                  XFile file = await controller!.takePicture();
-
-                                  logged = await UserController.login(
-                                      nameController.text,
-                                      passwordController.text,
-                                      imagePath: file.path);
-
-                                  loggedCompleter.complete(logged);
-
-                                  _closeOverlay();
-                                }),
-                          ),
-                        ],
-                      ),
-                    ]),
-              ),
+        maintainState: true,
+        builder: (context) => CameraOverlay(
+              // loggedCompleter: loggedCompleter,
+              closeOverlay: _closeOverlay,
+              onTakePicture: onTakePicture,
             ));
 
     overlay.insert(entry!);
 
-    return loggedCompleter.future;
+    return loggedCompleter!.future;
   }
 
-  _closeOverlay() {
+  onTakePicture(XFile file) async {
+    if (widget.type == AuthType.login) {
+      logged = await UserController.login(
+          nameController.text, passwordController.text,
+          imagePath: file.path);
+    } else {
+      logged = await UserController.register(
+          nameController.text, passwordController.text,
+          imagePath: file.path);
+    }
+    loggedCompleter!.complete(logged);
+    _closeOverlay();
+  }
+
+  void _closeOverlay() {
     entry!.remove();
-    controller?.dispose();
-  }
-
-  Future<void> onNewCameraSelected(CameraDescription cameraDescription) async {
-    if (controller != null) {
-      await controller!.dispose();
-    }
-
-    final CameraController cameraController =
-        CameraController(cameraDescription, ResolutionPreset.medium);
-
-    controller = cameraController;
-
-    // If the controller is updated then update the UI.
-    cameraController.addListener(() {
-      if (mounted) {
-        setState(() {});
-      }
-      if (cameraController.value.hasError) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                'Camera error ${cameraController.value.errorDescription}')));
-      }
-    });
-
-    try {
-      await cameraController.initialize();
-      // The exposure mode is currently not supported on the web.
-
-    } on CameraException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.code}\n${e.description}')));
-    }
-
-    if (mounted) {
-      setState(() {});
-    }
   }
 }

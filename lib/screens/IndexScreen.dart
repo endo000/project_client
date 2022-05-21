@@ -142,6 +142,7 @@ class _IndexScreenState extends State<IndexScreen> {
 
   @override
   void initState() {
+    updateTraffic();
     _trafficTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       print("Traffic stream ${timer.tick}");
       updateTraffic();

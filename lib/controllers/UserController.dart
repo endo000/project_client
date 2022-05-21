@@ -44,9 +44,20 @@ class UserController {
     return false;
   }
 
-  static Future<bool> register(username, password) async {
-    var response = await http.post(Uri.parse('http://$serverIP/users/register'),
-        body: {'username': username, 'password': password});
+  static Future<bool> register(username, password, {imagePath}) async {
+    var request = http.MultipartRequest(
+        'POST', Uri.parse('http://$serverIP/users/register'));
+    request.fields['username'] = username;
+    request.fields['password'] = password;
+
+    if (imagePath != null) {
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        imagePath,
+      ));
+    }
+
+    var response = await request.send();
 
     if (![200, 201].contains(response.statusCode)) return false;
 
