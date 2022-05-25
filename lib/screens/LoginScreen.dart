@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController passwordController = TextEditingController();
 
   bool? logged;
+  bool use2fa = false;
   Completer<bool>? loggedCompleter;
 
   final _formKey = GlobalKey<FormState>();
@@ -95,6 +96,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
+                  if (widget.type == AuthType.singin)
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(10, 0, 10, 0),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const Text('Use 2FA'),
+                            Checkbox(
+                              value: use2fa,
+                              onChanged: (bool? value) {
+                                setState(() {
+                                  use2fa = value ?? false;
+                                });
+                              },
+                            ), //
+                          ]),
+                    ),
                   // Login / Sign up button
                   Container(
                       height: 50,
@@ -113,11 +131,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 nameController.text, passwordController.text,
                                 openCameraCallback: showOverlay);
                           } else {
-                            logged = await showOverlay();
-                            // logged = await UserController.register(
-                            //   nameController.text,
-                            //   passwordController.text,
-                            // );
+                            // logged = await showOverlay();
+                            logged = await UserController.register(
+                                nameController.text, passwordController.text,
+                                openCameraCallback:
+                                    use2fa ? showOverlay : null);
                           }
 
                           if (logged!) {

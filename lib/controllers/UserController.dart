@@ -44,7 +44,10 @@ class UserController {
     return false;
   }
 
-  static Future<bool> register(username, password, {imagePath}) async {
+  static Future<bool> register(username, password,
+      {imagePath, openCameraCallback}) async {
+    if (openCameraCallback != null) return openCameraCallback();
+
     var request = http.MultipartRequest(
         'POST', Uri.parse('http://$serverIP/users/register'));
     request.fields['username'] = username;

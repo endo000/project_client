@@ -9,24 +9,6 @@ import 'dart:async';
 import '../controllers/RoadController.dart';
 import 'SendDataScreen.dart';
 
-class ExamplePopup extends StatelessWidget {
-  const ExamplePopup({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Column(
-            mainAxisSize: MainAxisSize.min, children: const [Text("asdasd")]),
-      ),
-    );
-  }
-}
-
 class Road {
   Road(
       {required this.posX,
@@ -40,47 +22,6 @@ class Road {
   final int avgSpeed;
   final int avgGap;
   final int avgTraffic;
-}
-
-class TrafficMarker extends Marker {
-  TrafficMarker({required this.road})
-      : super(
-          anchorPos: AnchorPos.align(AnchorAlign.top),
-          width: 40,
-          height: 40,
-          point: LatLng(road.posY, road.posX),
-          builder: (_) => Icon(Icons.location_on,
-              size: 40,
-              color: road.avgTraffic >= 200 ? Colors.red : Colors.green),
-        );
-
-  final Road road;
-}
-
-class TrafficMarkerPopup extends StatelessWidget {
-  const TrafficMarkerPopup({Key? key, required this.road}) : super(key: key);
-
-  final Road road;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 200,
-      child: Card(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text("Average gap: ${road.avgGap}"),
-            Text("Average speed: ${road.avgSpeed}"),
-            Text("Average traffic: ${road.avgTraffic}"),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class IndexScreen extends StatefulWidget {
@@ -243,6 +184,47 @@ class _IndexScreenState extends State<IndexScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class TrafficMarker extends Marker {
+  TrafficMarker({required this.road})
+      : super(
+          anchorPos: AnchorPos.align(AnchorAlign.top),
+          width: 40,
+          height: 40,
+          point: LatLng(road.posY, road.posX),
+          builder: (_) => Icon(Icons.location_on,
+              size: 40,
+              color: road.avgTraffic >= 200 ? Colors.red : Colors.green),
+        );
+
+  final Road road;
+}
+
+class TrafficMarkerPopup extends StatelessWidget {
+  const TrafficMarkerPopup({Key? key, required this.road}) : super(key: key);
+
+  final Road road;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 200,
+      child: Card(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text("Average gap: ${road.avgGap}"),
+            Text("Average speed: ${road.avgSpeed}"),
+            Text("Average traffic: ${road.avgTraffic}"),
+          ],
+        ),
       ),
     );
   }
