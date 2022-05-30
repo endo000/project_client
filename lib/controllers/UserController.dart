@@ -70,11 +70,16 @@ class UserController {
   }
 
   static Future<bool> isLogged() async {
-    var response = await http.get(Uri.parse('http://$serverIP/users/auth'),
-        headers: await ApiController.getSession());
+    try {
+      var response = await http.get(Uri.parse('http://$serverIP/users/auth'),
+          headers: await ApiController.getSession());
 
-    if (response.statusCode != 200) return false;
+      if (response.statusCode != 200) return false;
 
-    return true;
+      return true;
+
+    } catch (e) {
+      return Future.error(e);
+    }
   }
 }

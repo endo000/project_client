@@ -9,7 +9,7 @@ List<CameraDescription> cameras = <CameraDescription>[];
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  ApiController.deleteSession();
+  // ApiController.deleteSession();
 
   cameras = await availableCameras();
 

@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map_marker_popup/flutter_map_marker_popup.dart';
 import 'package:flutter_map_location_marker/flutter_map_location_marker.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:async';
 
 import '../controllers/RoadController.dart';
@@ -33,10 +34,44 @@ class IndexScreen extends StatefulWidget {
 
 class _IndexScreenState extends State<IndexScreen> {
   final PopupController _popupLayerController = PopupController();
+
+  late Timer _dataTimer;
   late Timer _trafficTimer;
+  final _streamSubscriptions = <StreamSubscription<dynamic>>[];
+
+  Position? position;
+  UserAccelerometerEvent? accelerometer;
+  MagnetometerEvent? magnetometer;
+
+  Map? get data {
+    if (position == null) return null;
+    if (accelerometer == null) return null;
+    if (magnetometer == null) return null;
+
+    return {
+      "position": {
+        "latitude": position!.latitude,
+        "longitude": position!.longitude,
+        "speed": position!.speed,
+      },
+      "accelerometer": {
+        "x": accelerometer!.x,
+        "y": accelerometer!.y,
+        "z": accelerometer!.z
+      },
+      "magnetometer": {
+        "x": magnetometer!.x,
+        "y": magnetometer!.y,
+        "z": magnetometer!.z
+      }
+    };
+  }
+
   late CenterOnLocationUpdate _centerOnLocationUpdate;
   late StreamController<double?> _centerCurrentLocationStreamController;
 
+  bool isSending = false;
+  String roadStatusText = "Haha";
   List<TrafficMarker> _markers = [];
 
   Future<bool> _determinePosition() async {
@@ -175,17 +210,53 @@ class _IndexScreenState extends State<IndexScreen> {
             bottom: 20,
             child: ElevatedButton(
               child: const Text('Start sending'),
-              onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const SendDataScreen()));
-              },
+              style: ElevatedButton.styleFrom(shape: const StadiumBorder()),
+              onPressed: startSending,
             ),
           ),
+          if (isSending)
+            Positioned(left: 20, top: 20, child: Text(roadStatusText)),
         ],
       ),
     );
+  }
+
+  void startSending() {
+    setState(() {
+      isSending = !isSending;
+    });
+    if (isSending) {
+      _dataTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        if (data != null) {
+          RoadController.sendData(data!);
+          roadStatusText = timer.tick.toString();
+        }
+      });
+
+      _streamSubscriptions.addAll([
+        Geolocator.getPositionStream().listen((event) {
+          setState(() {
+            position = event;
+          });
+        }),
+        userAccelerometerEvents.listen((event) {
+          setState(() {
+            accelerometer = event;
+          });
+        }),
+        magnetometerEvents.listen((event) {
+          setState(() {
+            magnetometer = event;
+          });
+        })
+      ]);
+    } else {
+      _dataTimer.cancel();
+      RoadController.finishData();
+      for (final subscription in _streamSubscriptions) {
+        subscription.cancel();
+      }
+    }
   }
 }
 
