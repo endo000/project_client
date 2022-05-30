@@ -43,35 +43,11 @@ class _IndexScreenState extends State<IndexScreen> {
   UserAccelerometerEvent? accelerometer;
   MagnetometerEvent? magnetometer;
 
-  Map? get data {
-    if (position == null) return null;
-    if (accelerometer == null) return null;
-    if (magnetometer == null) return null;
-
-    return {
-      "position": {
-        "latitude": position!.latitude,
-        "longitude": position!.longitude,
-        "speed": position!.speed,
-      },
-      "accelerometer": {
-        "x": accelerometer!.x,
-        "y": accelerometer!.y,
-        "z": accelerometer!.z
-      },
-      "magnetometer": {
-        "x": magnetometer!.x,
-        "y": magnetometer!.y,
-        "z": magnetometer!.z
-      }
-    };
-  }
-
   late CenterOnLocationUpdate _centerOnLocationUpdate;
   late StreamController<double?> _centerCurrentLocationStreamController;
 
   bool isSending = false;
-  String roadStatusText = "Haha";
+  String? roadStatusText;
   List<TrafficMarker> _markers = [];
 
   Future<bool> _determinePosition() async {
@@ -130,7 +106,6 @@ class _IndexScreenState extends State<IndexScreen> {
 
   @override
   void dispose() {
-    print("index dispose");
     _trafficTimer.cancel();
     _centerCurrentLocationStreamController.close();
     super.dispose();
@@ -214,11 +189,54 @@ class _IndexScreenState extends State<IndexScreen> {
               onPressed: startSending,
             ),
           ),
-          if (isSending)
-            Positioned(left: 20, top: 20, child: Text(roadStatusText)),
+          if (isSending) Positioned(left: 20, top: 20, child: dataColumn),
         ],
       ),
     );
+  }
+
+  Map? get data {
+    if (position == null) return null;
+    if (accelerometer == null) return null;
+    if (magnetometer == null) return null;
+
+    return {
+      "position": {
+        "latitude": position!.latitude,
+        "longitude": position!.longitude,
+        "speed": position!.speed,
+      },
+      "accelerometer": {
+        "x": accelerometer!.x,
+        "y": accelerometer!.y,
+        "z": accelerometer!.z
+      },
+      "magnetometer": {
+        "x": magnetometer!.x,
+        "y": magnetometer!.y,
+        "z": magnetometer!.z
+      }
+    };
+  }
+
+  _sendData() {
+    if (data != null) {
+      RoadController.sendData(data!);
+
+      setState(() {
+        if (accelerometer == null) {
+          roadStatusText = "Unknown";
+        } else if (accelerometer!.z < 1) {
+          roadStatusText = "Very good";
+        } else if (accelerometer!.z < 2.4) {
+          roadStatusText = "Good";
+        } else if (accelerometer!.z < 3.5) {
+          roadStatusText = "Moderate";
+        } else {
+          roadStatusText = "Bad";
+        }
+      });
+    }
   }
 
   void startSending() {
@@ -226,13 +244,6 @@ class _IndexScreenState extends State<IndexScreen> {
       isSending = !isSending;
     });
     if (isSending) {
-      _dataTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-        if (data != null) {
-          RoadController.sendData(data!);
-          roadStatusText = timer.tick.toString();
-        }
-      });
-
       _streamSubscriptions.addAll([
         Geolocator.getPositionStream().listen((event) {
           setState(() {
@@ -241,15 +252,21 @@ class _IndexScreenState extends State<IndexScreen> {
         }),
         userAccelerometerEvents.listen((event) {
           setState(() {
+            print("Acc stream");
             accelerometer = event;
           });
         }),
         magnetometerEvents.listen((event) {
           setState(() {
+            print("Mag stream");
             magnetometer = event;
           });
         })
       ]);
+
+      _sendData();
+      _dataTimer =
+          Timer.periodic(const Duration(seconds: 1), (timer) => _sendData());
     } else {
       _dataTimer.cancel();
       RoadController.finishData();
@@ -257,6 +274,26 @@ class _IndexScreenState extends State<IndexScreen> {
         subscription.cancel();
       }
     }
+  }
+
+  Column get dataColumn {
+    const style = TextStyle(fontWeight: FontWeight.bold);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Speed: " + (position?.speed.toStringAsFixed(2) ?? "null"),
+            style: style),
+        Text("Road condition: " + (roadStatusText ?? "Unknownnnn"),
+            style: style),
+        Text("X: " + (accelerometer?.x.toStringAsFixed(2) ?? "null"),
+            style: style),
+        Text("Y: " + (accelerometer?.y.toStringAsFixed(2) ?? "null"),
+            style: style),
+        Text("Z: " + (accelerometer?.z.toStringAsFixed(2) ?? "null"),
+            style: style),
+      ],
+    );
   }
 }
 
