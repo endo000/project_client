@@ -184,7 +184,7 @@ class _IndexScreenState extends State<IndexScreen> {
             left: 20,
             bottom: 20,
             child: ElevatedButton(
-              child: const Text('Start sending'),
+              child: Text(isSending ? 'Stop sending' : 'Start sending'),
               style: ElevatedButton.styleFrom(shape: const StadiumBorder()),
               onPressed: startSending,
             ),
