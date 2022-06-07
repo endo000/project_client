@@ -40,6 +40,9 @@ class _IndexScreenState extends State<IndexScreen> {
   final _streamSubscriptions = <StreamSubscription<dynamic>>[];
 
   Position? position;
+  Position? oldPosition;
+  bool positionRefreshed = false;
+
   UserAccelerometerEvent? accelerometer;
   MagnetometerEvent? magnetometer;
 
@@ -220,23 +223,24 @@ class _IndexScreenState extends State<IndexScreen> {
   }
 
   _sendData() {
-    if (data != null) {
-      RoadController.sendData(data!);
+    if (oldPosition == position || data == null) return;
 
-      setState(() {
-        if (accelerometer == null) {
-          roadStatusText = "Unknown";
-        } else if (accelerometer!.z < 1) {
-          roadStatusText = "Very good";
-        } else if (accelerometer!.z < 2.4) {
-          roadStatusText = "Good";
-        } else if (accelerometer!.z < 3.5) {
-          roadStatusText = "Moderate";
-        } else {
-          roadStatusText = "Bad";
-        }
-      });
-    }
+    RoadController.sendData(data!);
+    oldPosition = position;
+
+    setState(() {
+      if (accelerometer == null) {
+        roadStatusText = "Unknown";
+      } else if (accelerometer!.z < 1) {
+        roadStatusText = "Very good";
+      } else if (accelerometer!.z < 2.4) {
+        roadStatusText = "Good";
+      } else if (accelerometer!.z < 3.5) {
+        roadStatusText = "Moderate";
+      } else {
+        roadStatusText = "Bad";
+      }
+    });
   }
 
   void startSending() {
@@ -252,13 +256,11 @@ class _IndexScreenState extends State<IndexScreen> {
         }),
         userAccelerometerEvents.listen((event) {
           setState(() {
-            print("Acc stream");
             accelerometer = event;
           });
         }),
         magnetometerEvents.listen((event) {
           setState(() {
-            print("Mag stream");
             magnetometer = event;
           });
         })
@@ -284,8 +286,7 @@ class _IndexScreenState extends State<IndexScreen> {
       children: [
         Text("Speed: " + (position?.speed.toStringAsFixed(2) ?? "null"),
             style: style),
-        Text("Road condition: " + (roadStatusText ?? "Unknownnnn"),
-            style: style),
+        Text("Road condition: " + (roadStatusText ?? "Unknown"), style: style),
         Text("X: " + (accelerometer?.x.toStringAsFixed(2) ?? "null"),
             style: style),
         Text("Y: " + (accelerometer?.y.toStringAsFixed(2) ?? "null"),
@@ -305,7 +306,7 @@ class TrafficMarker extends Marker {
           height: 40,
           point: LatLng(road.posY, road.posX),
           builder: (_) => Icon(Icons.location_on,
-              size: 40,
+              size: 20,
               color: road.avgTraffic >= 200 ? Colors.red : Colors.green),
         );
 
